@@ -62,6 +62,8 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 }
 
 func afterNow(date, now time.Time) bool {
+	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	return date.After(now) || date.Equal(now)
 }
 

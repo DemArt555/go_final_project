@@ -21,17 +21,21 @@ type Task struct {
 	Repeat  string `json:"repeat"`
 }
 
+// Условие по поиску на странице планировщика
 func GetTasks(limit string, search string) ([]*Task, error) {
-	//если параметр search пустой, возвращаем все задачи
+	fmt.Println("===> search =", search)
+	// если строка поиска пустая
 	if search == "" {
+		fmt.Println("===> вызываем GetAllTasks")
 		return GetAllTasks(limit)
 	}
-	//проверяем является ли search датой в формате 02.01.2006
+	// если вводим дату, то пытаемся ее распарсить
 	if date, err := time.Parse("02.01.2006", search); err == nil {
-		// Если это дата, преобразуем ее в формат "20060102" и выполняем выборку по дате
+		fmt.Println("===> распознано как дата:", date.Format("20060102"))
 		return GetTasksbyDate(date.Format("20060102"), limit)
 	}
-	//Если это не дата , выполняем поиск по подсроке в title и comment
+	//в остальных случаях мы импользуем поиск по текстовому запросу
+	fmt.Println("===> вызываем GetTasksbySearch")
 	return GetTasksbySearch(search, limit)
 }
 
@@ -120,12 +124,12 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 }
 func GetTasksbySearch(search string, limit string) ([]*Task, error) {
 	//Приводим строку поиска к верхнему регистру и добавляем символы % для LIKE
-	searchPattern := "%" + strings.ToUpper(search) + "%"
+	searchPattern := "%" + search + "%"
 
 	query := `
         SELECT id, date, title, comment, repeat 
         FROM scheduler 
-        WHERE UPPER(title) LIKE ? OR UPPER(comment) LIKE ?
+        WHERE title LIKE ? OR comment LIKE ?
 		ORDER BY date ASC 
         LIMIT ?
     `

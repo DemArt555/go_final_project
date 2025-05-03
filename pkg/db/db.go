@@ -8,7 +8,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const DB_file = "scheduler.db"
+const DbFile = "scheduler.db"
 
 // SQL схема базы данных
 const Schema = `
@@ -30,23 +30,18 @@ var DB *sql.DB
 
 func InitDb() error {
 	//Проверка, существует ли файл БД "scheduler.db"
-	if _, err := os.Stat(DB_file); os.IsNotExist(err) {
-		fmt.Println("Файл базы данных не найден. Создаем новый:", DB_file)
-		file, err := os.Create(DB_file)
+	if _, err := os.Stat(DbFile); os.IsNotExist(err) {
+		fmt.Println("Файл базы данных не найден. Создаем новый:", DbFile)
+		file, err := os.Create(DbFile)
 		if err != nil {
 			return fmt.Errorf("ошибка создания файла БД: %v", err)
 		}
 		file.Close()
 	}
-	// Получаем путь к БД из переменной окружения
-	dbFile := os.Getenv("TODO_DBFILE")
-	if dbFile == "" {
-		dbFile = "scheduler.db" // путь по умолчанию
-	}
 
 	// Подключение к ДБ
 	var err error
-	DB, err = sql.Open("sqlite", DB_file)
+	DB, err = sql.Open("sqlite", DbFile)
 	if err != nil {
 		return fmt.Errorf("ошибка подключения к БД: %v", err)
 	}
