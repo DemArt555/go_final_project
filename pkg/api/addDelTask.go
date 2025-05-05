@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,42 +12,36 @@ import (
 	"github.com/DemArt555/go_final_project/pkg/models"
 )
 
-// функция добавления задачи
-func AddTask(task *models.Task) (int64, error) {
-	var id int64
-	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`
-	res, err := db.DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
-	if err == nil {
-		id, err = res.LastInsertId()
-	}
-	return id, err
-}
-
 // обработчик добавления задачи
 func AddTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task models.Task
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		writeJsonAddTask(w, map[string]string{"error": "Invalid JSON format"})
+		log.Printf("Failed to decode JSON: %v", err)
+		WriteJSONError(w, "Invalid JSON format", http.StatusBadRequest)
 		return
 	}
 
 	if task.Title == "" {
-		writeJsonAddTask(w, map[string]string{"error": "Title is required"})
+		WriteJSONError(w, "Title is required", http.StatusBadRequest)
 		return
+
 	}
 
 	if err := CheckDate(&task); err != nil {
-		writeJsonAddTask(w, map[string]string{"error": err.Error()})
+		log.Printf("Date validation failed: %v", err)
+		WriteJSONError(w, err.Error(), http.StatusBadRequest)
 		return
+
 	}
 
-	id, err := AddTask(&task)
+	id, err := db.AddTask(&task)
 	if err != nil {
-		writeJsonAddTask(w, map[string]string{"error": "Database error"})
+		log.Printf("Database error: %v", err)
+		WriteJSONError(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	writeJsonAddTask(w, map[string]int64{"id": id})
+	WriteJSON(w, map[string]int64{"id": id})
 }
 
 // проверяем дату для обработчика добавления задачи
@@ -82,50 +77,6 @@ func CheckDate(task *models.Task) error {
 	return nil
 }
 
-// обрабатываем Json для addtask
-func writeJsonAddTask(w http.ResponseWriter, data any) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	json.NewEncoder(w).Encode(data)
-}
-
-// DeleteTask удаляет задачу из базы данных по её id
-func DeleteTask(id string) error {
-	query := `DELETE FROM scheduler WHERE id = ?`
-	res, err := db.DB.Exec(query, id)
-	if err != nil {
-		return fmt.Errorf("ошибка удаления задачи: %w", err)
-	}
-
-	count, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("ошибка проверки удаления: %w", err)
-	}
-	if count == 0 {
-		return fmt.Errorf("задача с id %s не найдена", id)
-	}
-
-	return nil
-}
-
-// UpdateDate обновляет дату выполнения задачи в базе данных
-func UpdateDate(next string, id string) error {
-	query := `UPDATE scheduler SET date = ? WHERE id = ?`
-	res, err := db.DB.Exec(query, next, id)
-	if err != nil {
-		return fmt.Errorf("ошибка обновления даты: %w", err)
-	}
-
-	count, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("ошибка проверки обновления: %w", err)
-	}
-	if count == 0 {
-		return fmt.Errorf("задача с id %s не найдена", id)
-	}
-
-	return nil
-}
-
 // HandleTaskDone обрабатывает POST-запрос /api/task/done
 func HandleTaskDone(w http.ResponseWriter, r *http.Request) {
 	// Проверяем метод запроса
@@ -150,7 +101,7 @@ func HandleTaskDone(w http.ResponseWriter, r *http.Request) {
 
 	// Если задача одноразовая (repeat пустое), удаляем её
 	if task.Repeat == "" {
-		err = DeleteTask(id)
+		err = db.DeleteTask(id)
 		if err != nil {
 			WriteJSONError(w, fmt.Sprintf("Ошибка удаления задачи: %v", err), http.StatusInternalServerError)
 			return
@@ -168,7 +119,7 @@ func HandleTaskDone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Обновляем дату в базе данных
-	err = UpdateDate(nextDate, id)
+	err = db.UpdateDate(nextDate, id)
 	if err != nil {
 		WriteJSONError(w, fmt.Sprintf("Ошибка обновления даты: %v", err), http.StatusInternalServerError)
 		return
@@ -194,7 +145,7 @@ func HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Удаляем задачу
-	err := DeleteTask(id)
+	err := db.DeleteTask(id)
 	if err != nil {
 		WriteJSONError(w, fmt.Sprintf("Ошибка удаления задачи: %v", err), http.StatusInternalServerError)
 		return

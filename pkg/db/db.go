@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/DemArt555/go_final_project/pkg/models"
 	_ "modernc.org/sqlite"
 )
 
@@ -49,6 +50,55 @@ func InitDb() error {
 	if _, err := DB.Exec(Schema); err != nil {
 		return fmt.Errorf("ошибка применения схемы: %v", err)
 
+	}
+
+	return nil
+}
+
+// Функция добавления задачи
+func AddTask(task *models.Task) (int64, error) {
+	var id int64
+	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`
+	res, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
+	if err == nil {
+		id, err = res.LastInsertId()
+	}
+	return id, err
+}
+
+// UpdateDate обновляет дату выполнения задачи в базе данных
+func UpdateDate(next string, id string) error {
+	query := `UPDATE scheduler SET date = ? WHERE id = ?`
+	res, err := DB.Exec(query, next, id)
+	if err != nil {
+		return fmt.Errorf("ошибка обновления даты: %w", err)
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка проверки обновления: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("задача с id %s не найдена", id)
+	}
+
+	return nil
+}
+
+// DeleteTask удаляет задачу из базы данных по её id
+func DeleteTask(id string) error {
+	query := `DELETE FROM scheduler WHERE id = ?`
+	res, err := DB.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("ошибка удаления задачи: %w", err)
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка проверки удаления: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("задача с id %s не найдена", id)
 	}
 
 	return nil
